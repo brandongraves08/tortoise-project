@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-hairee-cam-traffic
+spec:
+  podSelector:
+    matchLabels:
+      app: hairee-cam
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: nginx-rtmp
+    ports:
+    - protocol: TCP
+      port: 80

@@ -1,0 +1,12 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: hairee-cam
+  annotations:
+    haproxy.router.openshift.io/response-headers: "Strict-Transport-Security: max-age=31536000, X-Frame-Options: DENY, X-Content-Type-Options: nosniff"
+spec:
+  to:
+    kind: Service
+    name: hairee-cam
+  tls:
+    termination: edge

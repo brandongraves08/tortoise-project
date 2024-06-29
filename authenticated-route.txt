@@ -1,0 +1,20 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: hairee-cam
+  annotations:
+    haproxy.router.openshift.io/basic-auth: "hairee-auth"
+spec:
+  to:
+    kind: Service
+    name: hairee-cam
+  tls:
+    termination: edge
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: hairee-auth
+type: Opaque
+stringData:
+  auth: "username:{SHA}password_hash"

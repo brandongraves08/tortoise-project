@@ -1,0 +1,14 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: hairee-cam
+  annotations:
+    haproxy.router.openshift.io/rate-limit-connections: "true"
+    haproxy.router.openshift.io/rate-limit-connections.rate-http: "100"
+    haproxy.router.openshift.io/rate-limit-connections.concurrent-tcp: "100"
+spec:
+  to:
+    kind: Service
+    name: hairee-cam
+  tls:
+    termination: edge

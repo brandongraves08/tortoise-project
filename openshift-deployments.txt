@@ -1,0 +1,36 @@
+# ... (previous config remains the same)
+
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: hairee-cam
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-cluster-issuer"
+spec:
+  to:
+    kind: Service
+    name: hairee-cam
+  port:
+    targetPort: 80
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: nginx-rtmp
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-cluster-issuer"
+spec:
+  to:
+    kind: Service
+    name: nginx-rtmp
+  port:
+    targetPort: 8080
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+
+# ... (rest of the config remains the same)

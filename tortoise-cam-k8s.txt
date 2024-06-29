@@ -1,0 +1,33 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tortoise-cam
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tortoise-cam
+  template:
+    metadata:
+      labels:
+        app: tortoise-cam
+    spec:
+      containers:
+      - name: tortoise-cam
+        image: tortoise-cam:latest
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tortoise-cam
+spec:
+  selector:
+    app: tortoise-cam
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: LoadBalancer

@@ -1,0 +1,34 @@
+FROM debian:buster-slim
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libpcre3-dev \
+    libssl-dev \
+    zlib1g-dev \
+    wget
+
+# Download and extract NGINX
+RUN wget http://nginx.org/download/nginx-1.21.0.tar.gz && \
+    tar zxf nginx-1.21.0.tar.gz && \
+    rm nginx-1.21.0.tar.gz
+
+# Download and extract the RTMP module
+RUN wget https://github.com/arut/nginx-rtmp-module/archive/master.zip && \
+    unzip master.zip && \
+    rm master.zip
+
+# Compile NGINX with the RTMP module
+RUN cd nginx-1.21.0 && \
+    ./configure --with-http_ssl_module --add-module=../nginx-rtmp-module-master && \
+    make && \
+    make install
+
+# Forward logs to Docker log collector
+RUN ln -sf /dev/stdout /usr/local/nginx/logs/access.log && \
+    ln -sf /dev/stderr /usr/local/nginx/logs/error.log
+
+EXPOSE 1935
+EXPOSE 8080
+
+CMD ["/usr/local/nginx/sbin/nginx", "-g", "daemon off;"]

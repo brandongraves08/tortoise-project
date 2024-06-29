@@ -1,0 +1,12 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: hairee-cam
+  annotations:
+    haproxy.router.openshift.io/ip_whitelist: "192.168.1.0/24 10.0.0.0/8"
+spec:
+  to:
+    kind: Service
+    name: hairee-cam
+  tls:
+    termination: edge
