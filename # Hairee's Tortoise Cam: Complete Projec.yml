@@ -1,0 +1,549 @@
+# Hairee's Tortoise Cam: Complete Project Content
+
+## Table of Contents
+1. Introduction
+2. Project Overview
+3. Prerequisites
+4. NGINX RTMP Server Setup
+5. Website Creation
+6. OpenShift Deployment Configuration
+7. HTTPS Setup with Let's Encrypt
+8. Deployment Steps
+9. Security Considerations
+10. Conclusion
+
+## 1. Introduction
+
+This document contains all the necessary information and code to set up a live streaming website for Hairee, an 8-year-old Russian tortoise, using OpenShift. The project combines containerization, streaming technology, and web development to create a unique and educational experience.
+
+## 2. Project Overview
+
+The project consists of the following components:
+- An NGINX RTMP server to handle the video stream
+- A web server to host our website
+- OpenShift configurations to deploy and manage our services
+- Let's Encrypt integration for HTTPS security
+
+## 3. Prerequisites
+
+- An OpenShift cluster (home setup)
+- Access to your router for port forwarding
+- A domain name pointing to your home IP address
+- Basic knowledge of Docker, YAML, and Kubernetes/OpenShift concepts
+
+## 4. NGINX RTMP Server Setup
+
+### Dockerfile for NGINX RTMP Server
+
+```dockerfile
+FROM debian:buster-slim
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libpcre3-dev \
+    libssl-dev \
+    zlib1g-dev \
+    wget
+
+# Download and compile NGINX with RTMP module
+RUN wget http://nginx.org/download/nginx-1.21.0.tar.gz && \
+    tar zxf nginx-1.21.0.tar.gz && \
+    rm nginx-1.21.0.tar.gz && \
+    wget https://github.com/arut/nginx-rtmp-module/archive/master.zip && \
+    unzip master.zip && \
+    rm master.zip && \
+    cd nginx-1.21.0 && \
+    ./configure --with-http_ssl_module --add-module=../nginx-rtmp-module-master && \
+    make && \
+    make install
+
+EXPOSE 1935
+EXPOSE 8080
+
+CMD ["/usr/local/nginx/sbin/nginx", "-g", "daemon off;"]
+```
+
+### NGINX Configuration
+
+```nginx
+worker_processes auto;
+
+events {
+    worker_connections 1024;
+}
+
+rtmp {
+    server {
+        listen 1935;
+        chunk_size 4000;
+
+        application live {
+            live on;
+            exec ffmpeg -i rtsps://192.168.0.1:7441/uUWM8WFdS1X4tgeG?enableSrtp
+                        -c:v libx264 -c:a aac -b:a 128k -b:v 2500k
+                        -f flv rtmp://localhost:1935/hls/stream;
+        }
+
+        application hls {
+            live on;
+            hls on;
+            hls_path /tmp/hls;
+            hls_fragment 3;
+            hls_playlist_length 60;
+        }
+    }
+}
+
+http {
+    server {
+        listen 8080;
+
+        location / {
+            root /usr/local/nginx/html;
+        }
+
+        location /hls {
+            types {
+                application/vnd.apple.mpegurl m3u8;
+                video/mp2t ts;
+            }
+            root /tmp;
+            add_header Cache-Control no-cache;
+            add_header Access-Control-Allow-Origin *;
+        }
+    }
+}
+```
+
+## 5. Website Creation
+
+### HTML for Hairee's Tortoise Cam Website
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hairee's Tortoise Cam - Watch Our Russian Friend Live!</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/video.js/7.10.2/video-js.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/video.js/7.10.2/video.min.js"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        header {
+            background-color: #5D4037;
+            color: white;
+            text-align: center;
+            padding: 1em;
+            border-radius: 5px;
+        }
+        h1 {
+            margin-bottom: 0;
+        }
+        .subtitle {
+            font-style: italic;
+            margin-top: 0;
+        }
+        .container {
+            background-color: white;
+            border-radius: 5px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        #video-container {
+            width: 100%;
+            max-width: 640px;
+            margin: 20px auto;
+            border: 3px solid #5D4037;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .info-section {
+            margin-top: 20px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .info-box {
+            flex-basis: 48%;
+            background-color: #e9e9e9;
+            padding: 15px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Hairee's Tortoise Cam</h1>
+        <p class="subtitle">Watch Our Russian Friend Live!</p>
+    </header>
+    <div class="container">
+        <div id="video-container">
+            <video-js id="hairee-video" class="vjs-default-skin" controls preload="auto" width="640" height="480">
+                <source src="http://your-openshift-route/hls/stream.m3u8" type="application/x-mpegURL">
+            </video-js>
+        </div>
+        <div class="info-section">
+            <div class="info-box">
+                <h2>About Hairee</h2>
+                <p>Meet Hairee, our resident Russian tortoise! Hairee is an 8-year-old who loves exploring his enclosure, basking under his heat lamp, and munching on a variety of leafy greens.</p>
+            </div>
+            <div class="info-box">
+                <h2>Russian Tortoise Facts</h2>
+                <ul>
+                    <li>Russian tortoises are also known as Horsfield's tortoises</li>
+                    <li>They typically live 50-80 years in captivity</li>
+                    <li>These tortoises are native to Central Asia</li>
+                    <li>They hibernate in the wild but may not need to in captivity</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <script>
+        var player = videojs('hairee-video');
+    </script>
+</body>
+</html>
+```
+
+## 6. OpenShift Deployment Configuration
+
+### OpenShift Deployment YAML
+
+```yaml
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  nginx.conf: |
+    # Content of the NGINX configuration goes here
+
+---
+apiVersion: apps.openshift.io/v1
+kind: DeploymentConfig
+metadata:
+  name: nginx-rtmp
+spec:
+  replicas: 1
+  selector:
+    app: nginx-rtmp
+  template:
+    metadata:
+      labels:
+        app: nginx-rtmp
+    spec:
+      containers:
+      - name: nginx-rtmp
+        image: nginx-rtmp:latest
+        ports:
+        - containerPort: 1935
+        - containerPort: 8080
+        volumeMounts:
+        - name: config
+          mountPath: /usr/local/nginx/conf/nginx.conf
+          subPath: nginx.conf
+      volumes:
+      - name: config
+        configMap:
+          name: nginx-config
+
+---
+apiVersion: apps.openshift.io/v1
+kind: DeploymentConfig
+metadata:
+  name: hairee-cam
+spec:
+  replicas: 1
+  selector:
+    app: hairee-cam
+  template:
+    metadata:
+      labels:
+        app: hairee-cam
+    spec:
+      containers:
+      - name: hairee-cam
+        image: hairee-cam:latest
+        ports:
+        - containerPort: 80
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-rtmp
+spec:
+  selector:
+    app: nginx-rtmp
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hairee-cam
+spec:
+  selector:
+    app: hairee-cam
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: hairee-cam
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-cluster-issuer"
+spec:
+  to:
+    kind: Service
+    name: hairee-cam
+  port:
+    targetPort: 80
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: nginx-rtmp
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-cluster-issuer"
+spec:
+  to:
+    kind: Service
+    name: nginx-rtmp
+  port:
+    targetPort: 8080
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: nginx-rtmp
+
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: hairee-cam
+
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: nginx-rtmp
+spec:
+  source:
+    git:
+      uri: 'https://your-git-repo-url/nginx-rtmp'
+    type: Git
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Dockerfile.nginx-rtmp
+  output:
+    to:
+      kind: ImageStreamTag
+      name: 'nginx-rtmp:latest'
+
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: hairee-cam
+spec:
+  source:
+    git:
+      uri: 'https://your-git-repo-url/hairee-cam'
+    type: Git
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Dockerfile
+  output:
+    to:
+      kind: ImageStreamTag
+      name: 'hairee-cam:latest'
+```
+
+## 7. HTTPS Setup with Let's Encrypt
+
+### Cert-Manager Operator Subscription
+
+```yaml
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: cert-manager
+  namespace: openshift-operators
+spec:
+  channel: stable
+  name: cert-manager
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+```
+
+### Let's Encrypt ClusterIssuer
+
+```yaml
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-cluster-issuer
+spec:
+  acme:
+    email: your-email@example.com
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-cluster-issuer-key
+    solvers:
+    - http01:
+        ingress:
+          class: openshift-default
+```
+
+## 8. Deployment Steps
+
+1. Apply the OpenShift configurations:
+   ```
+   oc apply -f openshift-deployments.yaml
+   ```
+
+2. Start the builds:
+   ```
+   oc start-build nginx-rtmp
+   oc start-build hairee-cam
+   ```
+
+3. Configure your home router to forward ports 80 and 443 to your OpenShift cluster.
+
+4. Update your DNS settings to point your domain to your home IP address.
+
+## 9. Security Considerations
+
+Here are some additional security measures you can implement:
+
+### Authentication
+
+```yaml
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: hairee-cam
+  annotations:
+    haproxy.router.openshift.io/basic-auth: "hairee-auth"
+spec:
+  to:
+    kind: Service
+    name: hairee-cam
+  tls:
+    termination: edge
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: hairee-auth
+type: Opaque
+stringData:
+  auth: "username:{SHA}password_hash"
+```
+
+### IP Whitelisting
+
+```yaml
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: hairee-cam
+  annotations:
+    haproxy.router.openshift.io/ip_whitelist: "192.168.1.0/24 10.0.0.0/8"
+spec:
+  to:
+    kind: Service
+    name: hairee-cam
+  tls:
+    termination: edge
+```
+
+### Rate Limiting
+
+```yaml
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: hairee-cam
+  annotations:
+    haproxy.router.openshift.io/rate-limit-connections: "true"
+    haproxy.router.openshift.io/rate-limit-connections.rate-http: "100"
+    haproxy.router.openshift.io/rate-limit-connections.concurrent-tcp: "100"
+spec:
+  to:
+    kind: Service
+    name: hairee-cam
+  tls:
+    termination: edge
+```
+
+### Custom Headers
+
+```yaml
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: hairee-cam
+  annotations:
+    haproxy.router.openshift.io/response-headers: "Strict-Transport-Security: max-age=31536000, X-Frame-Options: DENY, X-Content-Type-Options: nosniff"
+spec:
+  to:
+    kind: Service
+    name: hairee-cam
+  tls:
+    termination: edge
+```
+
+### Network Policy
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-hairee-cam-traffic
+spec:
+  podSelector:
+    matchLabels:
+      app: hairee-cam
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: nginx-rtmp
+    ports:
+    - protocol: TCP
+      port: 80
+```
+
+## 10. Conclusion
+
+This project demonstrates how to set up a live streaming website for Hairee the tortoise using Open
